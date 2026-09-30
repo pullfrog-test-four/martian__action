@@ -80,9 +80,6 @@ The 4-backtick fence lets the block hold its own 3-backtick fences and stay one-
 
 Backtick-wrap identifiers and file names. Don't repeat diff content, don't include raw \`+123 / -45\` stats, no changelog, no horizontal rules, and no \`### Key changes\` / \`### Issues found\` / \`<b>TL;DR</b>\` heading — each \`### \` heading IS the issue.`;
 
-/** the line-level pass both review modes run after triage; measured in wiki/review-benchmarks.md */
-const DEFECT_SWEEP = `then sweep every changed hunk for the small defects a design-level read skips: null, empty and falsy-zero handling; boundaries and off-by-one; the wrong variable or argument; a missing \`await\`; check-then-act races; case, unit or timezone mismatches; error paths that swallow or mislabel; placeholder stubs left in; and behavior the old code had that the new code silently drops.`;
-
 export function computeModes(agentId: AgentId, signedCommits = false): Mode[] {
   const t = (toolName: string) => formatMcpToolRef(agentId, toolName);
   // signed-commits mode swaps the local-commit + push flow for the
@@ -190,8 +187,6 @@ For simple, well-defined tasks, skip the plan phase and go straight to build.`,
 
 3. **triage**: orient yourself on the PR — identify *what kind of thing this is* (domain it touches, seams it crosses, external contracts it depends on, user-facing surfaces it changes). pull as much context as you need to render a confident, well-grounded review: read related files, grep for callers of changed symbols, check tests that exercise the touched paths, fetch related GitHub state. **you are the synthesizer** — never delegate understanding to subagents.
 
-   ${DEFECT_SWEEP}
-
    when the diff adds or changes a test, check that it can actually fail: a test that would still pass with the bug present is theatre, not coverage. the usual tell is a loose assertion standing where an exact one belongs — \`>=\` or a truthiness check over an expected value, or a snapshot that absorbs whatever it is handed. read the assertion against the behavior it claims to pin, not against whether it currently passes.
 
    skip the deeper pass and submit a \`No new issues found.\` review per step 7 only when the diff has **no behavioral surface at all** — doc typos, whitespace/formatting, lockfile or generated-code regeneration, a mechanical rename whose only effect is import-path updates. line count is not the signal: a one-line change to auth, money, SQL, a comparison operator, a redirect, or a config default is not trivial.
@@ -219,7 +214,7 @@ For simple, well-defined tasks, skip the plan phase and go straight to build.`,
 
    **Hunt for non-anchored concerns before drafting.** After collecting your anchored findings, deliberately scan for concerns that have no specific line to point at — typically: deletion / cleanup plans for code the diff replaces or shadows; rollout sequencing (what happens to in-flight state during deploy / revert?); coverage gaps the diff implies but doesn't add; scope questions that only the human can answer (e.g. is the legacy path going away or is this a long-term dual track?); architectural risks the diff opens up that aren't a single-line bug. Post one only if it has real consequences if merged as-is.
 
-   for surviving findings, draft inline comments with NEW line numbers from the diff — attach a \`<details>Technical details</details>\` block to any inline comment whose fix is non-trivial or has cross-file implications (see Inline technical details in the format below). every comment must be actionable, 2-3 sentences max in the visible part, and about one defect — no asides; a second defect gets its own comment. use GitHub permalink format for code references. for impact-analysis findings (stale references after rename/remove), report them in the review body ordered by severity (runtime breakage > incorrect docs > stale comments) rather than as inline comments unless they're anchored to a specific line.
+   for surviving findings, draft inline comments with NEW line numbers from the diff — attach a \`<details>Technical details</details>\` block to any inline comment whose fix is non-trivial or has cross-file implications (see Inline technical details in the format below). every comment must be actionable, 2-3 sentences max in the visible part. use GitHub permalink format for code references. for impact-analysis findings (stale references after rename/remove), report them in the review body ordered by severity (runtime breakage > incorrect docs > stale comments) rather than as inline comments unless they're anchored to a specific line.
 
 7. **submit**: ALWAYS submit exactly one review via \`${t("create_pull_request_review")}\`. Do NOT call \`report_progress\` — the review is the final record and the progress comment will be cleaned up automatically.
 
@@ -284,8 +279,6 @@ ${PR_SUMMARY_FORMAT}`,
 
 5. **triage**: orient on the *incremental* changes — domain, seams, external contracts, user-facing surfaces. pull as much context as you need to render a confident review: read related files, grep for callers of changed symbols, check tests that exercise the touched paths. **you are the synthesizer.**
 
-   ${DEFECT_SWEEP}
-
    a test added or changed in this delta must be able to fail — one that would still pass with the bug present is theatre, not coverage. the tell is a loose assertion where an exact one belongs (\`>=\` or a truthiness check over an expected value, a snapshot that absorbs whatever it is handed).
 
    skip the deeper pass and jump to step 10's non-substantive path (do NOT submit a review) only when the incremental changes have **no behavioral surface at all** — formatting, comment tweaks, import reordering, lockfile regen, a mechanical rename of import paths. line count is not the signal: a one-line change to auth, money, SQL, a comparison operator, a redirect, or a config default is not trivial.
@@ -313,7 +306,7 @@ ${PR_SUMMARY_FORMAT}`,
 
    **Hunt for non-anchored concerns before drafting.** After collecting your anchored findings, deliberately scan for concerns that have no specific line to point at — typically: deletion / cleanup plans for code the new commits replace or shadow; rollout sequencing (what happens to in-flight state during deploy / revert?); coverage gaps the new commits imply but don't add; scope questions that only the human can answer (e.g. is the legacy path going away or is this a long-term dual track?); architectural risks the new commits open up that aren't a single-line bug. Post one only if it has real consequences if merged as-is.
 
-   draft inline comments with NEW line numbers from the full PR diff — attach a \`<details>Technical details</details>\` block to any inline comment whose fix is non-trivial or has cross-file implications (see Inline technical details in the format below). every comment must be actionable, 2-3 sentences max in the visible part, and about one defect — no asides; a second defect gets its own comment.
+   draft inline comments with NEW line numbers from the full PR diff — attach a \`<details>Technical details</details>\` block to any inline comment whose fix is non-trivial or has cross-file implications (see Inline technical details in the format below). every comment must be actionable, 2-3 sentences max in the visible part.
 
 9. **build the review body**: use the same default format as Review mode (preamble + optional cross-cutting \`### \` sections) — scoped to the **incremental delta**, not the full PR. The "Reviewed changes" bullets describe what changed since the prior pullfrog review (each bullet starts with a past-tense verb, e.g. \`- Extracted shared CLI runtime into a single module\`). Do NOT include a separate "Prior review feedback" checklist — that's tracked in the rolling PR summary snapshot for the next agent run, and surfacing it in the user-facing body is noise (changes that addressed prior feedback are already covered by the Reviewed-changes bullets). In some cases you may receive a complete diff for the whole PR instead of an incremental one; when this happens, determine what changed since Pullfrog's most recent review yourself before drafting bullets.
 
