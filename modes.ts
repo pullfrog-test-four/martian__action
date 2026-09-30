@@ -24,7 +24,7 @@ The body has at most two parts, in this order:
 1. **Reviewed changes preamble** — a bolded \`**Reviewed changes**\` lead-in with one sentence on what was reviewed in this run (for \`IncrementalReview\`: what changed since the prior pullfrog review), then a bullet list of the substantive changes — short bolded title, one sentence each. A reviewer should understand the full reviewed scope from this list alone. Close the preamble with the metadata comment below.
 2. **Cross-cutting issue sections** (zero or more) — one \`### {emoji} {what's wrong, not what to do}\` heading per concern.
 
-Nitpicks and informational observations are not posted, in the body or inline.
+Style nits and informational observations are not posted, in the body or inline. A low-stakes defect — a race, a leak, a wrong message, a missed edge case — is still a defect: post it inline.
 
 **Inline vs. body.** Concerns that anchor to a specific line go inline (the \`comments\` parameter), even when their implications are broad. Body \`### \` sections are reserved for concerns that have **no line to anchor to** — *absence* (something the diff should have done but didn't), *sequencing* (rollout / deletion / migration order), *design decisions only the human can make*, or *scope questions the diff raises but doesn't address*. With no non-anchorable concerns, the body is just the preamble + metadata.
 
