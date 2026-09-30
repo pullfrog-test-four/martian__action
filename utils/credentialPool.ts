@@ -11,7 +11,12 @@ import * as yes from "../yes/index.ts";
 import { resolveAgent } from "./agent.ts";
 import { apiFetch } from "./apiFetch.ts";
 import { log } from "./cli.ts";
-import { clearInstalledSubscription, installCodexAuth, installXaiAuth } from "./codexHome.ts";
+import {
+  canInstallSubscription,
+  clearInstalledSubscription,
+  installCodexAuth,
+  installXaiAuth,
+} from "./codexHome.ts";
 import { sanitizeSecret } from "./normalizeEnv.ts";
 import { authorizeModel } from "./openCodeModels.ts";
 import type { RunContextData } from "./runContextData.ts";
@@ -155,34 +160,37 @@ export async function selectConfiguredCredential(input: {
   const subscription = subscriptionForModel(model);
   const names = getModelEnvVars(model).filter((name) => name !== subscription);
   if (subscription) names.unshift(subscription);
-  const candidates = access.candidates.filter((candidate) => names.includes(candidate.name));
+  // a subscription this runner cannot install would displace a working API key, then fail as no key
+  const candidates = access.candidates.filter(
+    (candidate) => names.includes(candidate.name) && canInstallSubscription(candidate.name)
+  );
   // nothing stored to choose between: the workflow credential runs exactly as it did before pools
   if (!candidates.length) return false;
+  // a subscription pays before any API key, whatever its scope: claude.ts has always stripped
+  // the key once the subscription passes its preflight. the sort is stable, so the workflow
+  // still leads within each group.
+  const options = [
+    ...names
+      .filter((name) => workflowCredentials[name] && canInstallSubscription(name))
+      .map((name) => ({ name, candidate: undefined })),
+    ...candidates.map((candidate) => ({ name: candidate.name, candidate })),
+  ].sort((a, b) => Number(b.name === subscription) - Number(a.name === subscription));
   const refused: string[] = [];
-  for (const name of names.filter((item) => workflowCredentials[item])) {
-    const value = workflowCredentials[name];
-    const verdict = await probe({ name, value, model });
-    if (usable(verdict)) {
-      activate({ names, name, value, receipt: undefined, model });
-      return true;
-    }
-    refused.push(`${name} from the workflow: ${verdict.detail}`);
-    log.info(`» ${name} from the workflow unavailable; trying the next credential`);
-  }
-  for (const candidate of candidates) {
-    const selected = await select({ access, candidate });
+  for (const option of options) {
+    const selected = option.candidate
+      ? await select({ access, candidate: option.candidate })
+      : { name: option.name, value: workflowCredentials[option.name], receipt: undefined };
     if (!selected) continue;
+    const from = option.candidate ? `${option.candidate.source} scope` : "the workflow";
     const verdict = await probe({ ...selected, model });
-    await reportVerdict({ receipt: selected.receipt, verdict });
+    if (selected.receipt) await reportVerdict({ receipt: selected.receipt, verdict });
     if (usable(verdict)) {
       activate({ names, ...selected, model });
-      log.info(`» selected ${candidate.name} from ${candidate.source} scope`);
+      if (option.candidate) log.info(`» selected ${option.name} from ${from}`);
       return true;
     }
-    refused.push(`${candidate.name} from ${candidate.source} scope: ${verdict.detail}`);
-    log.info(
-      `» ${candidate.name} from ${candidate.source} scope unavailable; trying the next credential`
-    );
+    refused.push(`${option.name} from ${from}: ${verdict.detail}`);
+    log.info(`» ${option.name} from ${from} unavailable; trying the next credential`);
   }
   throw new Error(
     `all configured credentials for ${model} were rejected or exhausted (${refused.join("; ")}); no other model or provider was selected`
