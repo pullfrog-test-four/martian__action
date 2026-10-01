@@ -29,7 +29,7 @@ The body has at most three parts, in this order:
 
 **Severity emoji** on every \`### \` heading, and nowhere else: 🚨 critical (blocks merge — data loss, security, broken core flow) · ⚠️ important (must address before merging) · ℹ️ informational (mergeable as-is).
 
-**Behavior decides placement, not fix size.** A finding that changes what the code does — a wrong value or message, a crash, a race, a leak, a missed cleanup, a slow path — gets its own inline comment (or a \`### \` section if no line anchors it) at its real severity, however small the fix. Never put it in Nitpicks.
+**Behavior decides placement, not fix size.** A finding that changes what the code does — a wrong value or message, a crash, a race, a leak, a missed cleanup, a slow path — gets its own inline comment (or a \`### \` section if no line anchors it) at its real severity, however small the fix. Never put it in Nitpicks: before submitting, re-read each Nitpicks bullet and move any that fails this test inline.
 
 **Blank line between every block-level element.** GitHub's markdown parser requires one before and after HTML tags (\`<details>\`, \`<summary>\`, \`<sub>\`, \`<br/>\`) — without it GitHub treats what follows as a continuation of the HTML block and renders your markdown as literal text. This is a parser quirk, not a style preference, and it permanently breaks the posted review.
 
