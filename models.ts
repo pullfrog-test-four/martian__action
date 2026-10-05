@@ -812,6 +812,17 @@ export const providers = {
         // see the big-pickle note above (#1077).
         isFree: true,
       },
+      // Zen's FREE stealth preview (listed 2026-10-01), the fifth promo. Zen
+      // has not published its data terms yet, so the description claims none.
+      "fledge-alpha": {
+        displayName: "Fledge Alpha",
+        description: "Stealth preview, free for a limited time",
+        resolve: "opencode/fledge-alpha-free",
+        effort: ["low", "high", "max"],
+        // free to run, still gated on the provider's own OPENCODE_API_KEY —
+        // see the big-pickle note above (#1077).
+        isFree: true,
+      },
       // Zen's live free MiMo, and the second free row in a menu that big-pickle
       // was alone in since `mimo-v2-pro-free` lost its model.
       mimo: {
@@ -874,7 +885,11 @@ export const providers = {
       "glm-flash": {
         displayName: "GLM Flash",
         resolve: "opencode-go/glm-5.3-flash",
-        effort: ["low", "high", "max"],
+        // the Go endpoint intermittently rejects reasoning_effort ("native reasoning
+        // control reasoning_effort is not allowed") mid-run, despite models.dev
+        // advertising a ladder — so this route sends none.
+        effort: [],
+        openRouterEffort: ["low", "high", "max"],
         openRouterResolve: "openrouter/z-ai/glm-5.3-flash",
       },
       // legacy alias — the slug pinned a version instead of a brand tier and
@@ -1330,7 +1345,7 @@ export const providers = {
       "deepseek-pro": {
         displayName: "DeepSeek Pro",
         resolve: "vercel/deepseek/deepseek-v4-pro-0813",
-        effort: ["none", "high", "max"],
+        effort: ["none", "low", "high", "max"],
       },
       // the gateway's bare `deepseek-v4-flash` is the April preview — the same
       // fork trap as OpenRouter, with `deepseek-v4-flash-0731` beside it — so
@@ -1338,7 +1353,7 @@ export const providers = {
       "deepseek-flash": {
         displayName: "DeepSeek Flash",
         resolve: "vercel/deepseek/deepseek-v4.1-flash",
-        effort: ["none", "high", "max"],
+        effort: ["none", "low", "high", "max"],
       },
       glm: {
         displayName: "GLM",
@@ -1479,7 +1494,7 @@ export function modelHasStoredAuth(params: { model: string; secretNames: string[
  * as-configured rather than clamping to the auto tier.
  *
  * one predicate for every reader — the console picker's `customLocked`, the
- * effort ladder's `resolveRunning` and `pickUsesOpenRouter`. they held two
+ * effort ladder's `resolveRunning` and `resolvePickModel`. they held two
  * copies and the free half was missing from both, which put the whole `opencode/*` free tier (`opencode/big-pickle`
  * is `preferred`, so the most-picked model there is) behind "add a payment
  * method to run it" on a card-less Router repo, against a server that ran it.
@@ -1492,14 +1507,16 @@ export function routerProxyOptOut(ctx: { slug: string | null; secretNames: strin
   );
 }
 
-/** whether a pick runs as its OpenRouter target: a proxied account (Router, the OSS subsidy)
- * mints for every pick `routerProxyOptOut` does not exempt. */
-export function pickUsesOpenRouter(params: {
+/** the specifier a pick runs as: its OpenRouter target on a proxied account (Router, the OSS
+ * subsidy), which mints for every pick `routerProxyOptOut` does not exempt, else its direct one. */
+export function resolvePickModel(params: {
   slug: string;
   proxied: boolean;
   secretNames: string[];
-}): boolean {
-  return params.proxied && !routerProxyOptOut(params);
+}): string | undefined {
+  return params.proxied && !routerProxyOptOut(params)
+    ? resolveOpenRouterModel(params.slug)
+    : resolveCliModel(params.slug);
 }
 
 // ── derived flat list ──────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { type } from "arktype";
+import * as yes from "yes";
 import { formatMcpToolRef } from "../external.ts";
 import { type CommentableLines, primaryRepoState } from "../toolState.ts";
 import { getApiUrl } from "../utils/apiUrl.ts";
@@ -10,7 +11,6 @@ import { fixDoubleEscapedString } from "../utils/fixDoubleEscapedString.ts";
 import { isPullfrog } from "../utils/isPullfrog.ts";
 import { countOutstandingPullfrogThreads } from "../utils/outstandingThreads.ts";
 import { patchWorkflowRunFields } from "../utils/patchWorkflowRunFields.ts";
-import * as yes from "../yes/index.ts";
 import { deleteProgressComment } from "./comment.ts";
 import type { ToolContext } from "./server.ts";
 import { execute, getHttpStatus, tool } from "./shared.ts";
@@ -787,12 +787,12 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
         // which all cite the specific cause) clears on its own instead of
         // surfacing through the generic 422 handler — that framing sent the
         // agent dropping valid inline comments chasing a non-issue.
-        // `bail` scopes retries to the transient body only, so real
+        // `rethrow` scopes retries to the transient body only, so real
         // validation 422s still fail fast.
         let result;
         try {
-          result = await yes.op(
-            () =>
+          result = await yes.mutation({
+            run: () =>
               body
                 ? createAndSubmitWithFooter(ctx, params, {
                     body,
@@ -800,12 +800,12 @@ export function CreatePullRequestReviewTool(ctx: ToolContext) {
                     hasComments: (params.comments?.length ?? 0) > 0,
                   })
                 : createReviewWithStrandedRecovery(ctx, params),
-            {
-              retries: TRANSIENT_REVIEW_RETRY_DELAYS_MS,
-              bail: (err) => !isTransientReviewError(err),
-              name: "review submission",
-            }
-          )();
+            retry: (error, attempt) =>
+              isTransientReviewError(error)
+                ? yes.delay(TRANSIENT_REVIEW_RETRY_DELAYS_MS, attempt)
+                : -1,
+            name: "review submission",
+          })();
         } catch (err: unknown) {
           // the "would approve" verdict was recorded before this POST; a failed
           // submit must roll it back so a transient failure cannot fail-open into
